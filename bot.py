@@ -1,5 +1,6 @@
 import asyncio
 import json
+import requests
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
@@ -7,6 +8,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 # Replace with your actual Telegram bot token
 BOT_TOKEN = '8178877597:AAE96gAegbosNqMYZm669rcmkK1aJjlPgq0'
+TM_API_KEY = 'AOB0wKnS5R6I2j5CbqGsgAGQgoGuDLzN'
 
 # Initialize bot and dispatcher
 bot = Bot(token=BOT_TOKEN)
@@ -46,6 +48,24 @@ main_menu = ReplyKeyboardMarkup(
 # Define a dictionary to track user states
 user_states = {}
 
+def get_events(city):
+    url = "https://app.ticketmaster.com/discovery/v2/events.json"
+    params = {
+        'apikey': TM_API_KEY,
+        'city': city,
+    }
+
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Return the list of events or empty list if no events
+        return data.get('_embedded', {}).get('events', [])
+    except requests.RequestException as e:
+        print(f"Error fetching events for {city}: {e}")
+        return []
+    
 # Start command handler
 @dp.message(Command("start"))
 async def send_welcome(message: types.Message):
@@ -60,6 +80,26 @@ async def send_welcome(message: types.Message):
         "Welcome! Choose an option:", 
         reply_markup=main_menu
     )
+
+@dp.message(F.text == "Manual Event Updates Check")
+async def manual_event_check(message: types.Message):
+    user_id = message.from_user.id
+    for city in user_cities[user_id]:
+        events = get_events(city)
+        
+        for event in events:
+            event_message = f"--- Events in {city} ---\n\n"
+            name = event['name']
+            date = event['dates']['start']['localDate']
+            url = event['url']
+            event_message += f"Event: {name}\n"
+            event_message += f"Date: {date}\n"
+            event_message += f"Get Tickets: {url}\n"
+            event_message += "-" * 50 + "\n"
+        
+            await bot.send_message(user_id, event_message)
+            await asyncio.sleep(0.5)
+
 
 # Handler for the "City Management" button
 @dp.message(F.text == "City Management")
