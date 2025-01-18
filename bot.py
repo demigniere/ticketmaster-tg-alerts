@@ -14,15 +14,12 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 TM_API_KEY = os.getenv("TM_API_KEY")
 
-# Initialize bot and dispatcher
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
-# File paths
 CITIES_FILE = 'user_cities.json'
 SENT_EVENTS_FILE = 'sent_events.json'
 
-# Load and save JSON helpers
 def load_json(file_path):
     try:
         with open(file_path, 'r') as f:
@@ -34,14 +31,13 @@ def save_json(data, file_path):
     with open(file_path, 'w') as f:
         json.dump(data, f, indent=4)
 
-# Initialize data
 user_cities = load_json(CITIES_FILE)
 sent_events = load_json(SENT_EVENTS_FILE)
 
 def save_cities():
     save_json(user_cities, CITIES_FILE)
 
-# Main menu keyboard
+# main menu keyboard
 main_menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="Manual check")],
@@ -52,10 +48,8 @@ main_menu = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-# User states for input handling
 user_states = {}
 
-# Helper function to fetch events from Ticketmaster API
 def get_events(city):
     url = "https://app.ticketmaster.com/discovery/v2/events.json"
     params = {
@@ -72,7 +66,6 @@ def get_events(city):
         print(f"Error fetching events for {city}: {e}")
         return []
 
-# Function to send new events to users
 async def send_events_to_user(user_id, city, events):
     global sent_events
     new_events = []
@@ -85,19 +78,28 @@ async def send_events_to_user(user_id, city, events):
 
     if new_events:
         for event in new_events:
+            # Extract ticket sale start and end dates
+            sales_start = event.get('sales', {}).get('public', {}).get('startDateTime')
+            sales_end = event.get('sales', {}).get('public', {}).get('endDateTime')
+
+            # Format ticket sale start and end dates (if available)
+            sales_start_str = sales_start if sales_start else "N/A"
+            sales_end_str = sales_end if sales_end else "N/A"
+
             event_message = (
                 f"--- Events in {city} ---\n\n"
                 f"Event: {event['name']}\n"
                 f"Date: {event['dates']['start']['localDate']}\n"
                 f"Get Tickets: {event['url']}\n"
+                f"Ticket Sale Start: {sales_start_str} UTC\n"
+                f"Ticket Sale End: {sales_end_str}\n UTC"
                 f"{'-' * 50}\n"
             )
-            await bot.send_message(user_id, event_message)
+            await bot.send_message(user_id, event_message)          
             await asyncio.sleep(0.5)  # Avoid flooding
     else:
         await bot.send_message(user_id, f"No new events found in {city}.")
 
-# Hourly event checking loop
 async def hourly_event_check():
     while True:
         print(f"Running hourly check at {datetime.datetime.now()}...")
@@ -108,7 +110,6 @@ async def hourly_event_check():
                     await send_events_to_user(user_id, city, events)
         await asyncio.sleep(3600)
 
-# Command Handlers
 @dp.message(Command("start"))
 async def send_welcome(message: types.Message):
     user_id = str(message.from_user.id)
@@ -192,9 +193,9 @@ async def start_remove_city(message: types.Message):
         return
 
     builder = InlineKeyboardBuilder()
-    # Add a unique identifier to ensure unique callback data
+    # add a unique identifier to ensure unique callback data
     for city in cities:
-        # Ensure city name is URL-safe by replacing spaces with underscores
+        # spaces to underscores
         safe_city = city.replace(" ", "_")
         builder.button(
             text=city,
@@ -211,7 +212,6 @@ async def start_remove_city(message: types.Message):
 async def handle_callback(callback: types.CallbackQuery):
     try:
         user_id = str(callback.from_user.id)
-        # Convert back from URL-safe format
         city = callback.data.split("remove_", 1)[1].replace("_", " ")
 
         if user_id not in user_cities:
@@ -224,12 +224,12 @@ async def handle_callback(callback: types.CallbackQuery):
 
         if city in user_data["cities"]:
             user_data["cities"].remove(city)
-            save_cities()  # Save changes immediately
+            save_cities() 
             
             await callback.answer(f"Removed {city}", show_alert=True)
             
             if user_data["cities"]:
-                # Create new keyboard with remaining cities
+                # create new keyboard with remaining cities
                 builder = InlineKeyboardBuilder()
                 for remaining_city in user_data["cities"]:
                     safe_city = remaining_city.replace(" ", "_")
@@ -286,7 +286,6 @@ async def add_city(message: types.Message):
 
     user_states[user_id] = None
 
-# Main function
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
     asyncio.create_task(hourly_event_check())
