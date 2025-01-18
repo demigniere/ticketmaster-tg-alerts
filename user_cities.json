@@ -1,10 +1,6 @@
 {
-    "7872657433": [
-        "New York",
-        "Madrid"
-    ],
-    "905884210": [
-        "New York",
-        "Madrid"
-    ]
+    "905884210": {
+        "auto_updates": false,
+        "cities": []
+    }
 }
