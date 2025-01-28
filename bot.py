@@ -108,7 +108,7 @@ async def hourly_event_check():
                 for city in user_data.get("cities", []):
                     events = get_events(city)
                     await send_events_to_user(user_id, city, events)
-        await asyncio.sleep(3600)
+        await asyncio.sleep(43200)
 
 @dp.message(Command("start"))
 async def send_welcome(message: types.Message):
