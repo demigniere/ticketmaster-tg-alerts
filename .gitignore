@@ -1,2 +1,4 @@
 .env
 __pycache__
+sent_events.json
+user_cities.json
